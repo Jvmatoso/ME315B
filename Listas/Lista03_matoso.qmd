@@ -1,0 +1,342 @@
+---
+title: "Lista 03 — DISTINCT, AND-OR-NOT (Hands-On)"
+subtitle: "SQL para Estatísticos — Laboratório 03"
+author: "João Vitor Matoso"
+date: today
+date-format: "DD/MM/YYYY"
+lang: pt-BR
+format:
+  pdf:
+    documentclass: article
+    geometry: margin=2.5cm
+    toc: false
+    number-sections: false
+    colorlinks: true
+    code-block-bg: "#f5f5f5"
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Preparação
+
+O banco `me315.sqlite` contém as tabelas `PRESERVE` e `EMPLOYEE` criadas na aula anterior.
+Para que este documento seja reproduzível, o banco é (re)criado abaixo com os mesmos
+comandos da Aula 01, e a conexão `con` é usada em todos os chunks SQL.
+
+```{r}
+#| label: setup
+#| warning: false
+#| message: false
+library(DBI)
+library(RSQLite)
+
+con <- dbConnect(SQLite(), "me315.sqlite")
+
+# Mostrar todas as linhas nos chunks SQL (o padrão do knitr é 10)
+knitr::opts_chunk$set(connection = "con", max.print = -1)
+
+comandos <- c(
+  "DROP TABLE IF EXISTS PRESERVE",
+  "DROP TABLE IF EXISTS EMPLOYEE",
+  "CREATE TABLE PRESERVE
+   (PNO   INTEGER       NOT NULL UNIQUE,
+    PNAME VARCHAR (25)  NOT NULL,
+    STATE CHAR (2)      NOT NULL,
+    ACRES INTEGER       NOT NULL,
+    FEE   DECIMAL (5,2) NOT NULL)",
+  "INSERT INTO PRESERVE VALUES
+   (5,  'HASSAYAMPA RIVER',        'AZ', 660,   3.00),
+   (3,  'DANCING PRAIRIE',         'MT', 680,   0.00),
+   (7,  'MULESHOE RANCH',          'AZ', 49120, 0.00),
+   (40, 'SOUTH FORK MADISON',      'MT', 121,   0.00),
+   (14, 'MCELWAIN-OLSEN',          'MA', 66,    0.00),
+   (13, 'TATKON',                  'MA', 40,    0.00),
+   (9,  'DAVID H. SMITH',          'MA', 830,   0.00),
+   (11, 'MIACOMET MOORS',          'MA', 4,     0.00),
+   (12, 'MOUNT PLANTAIN',          'MA', 730,   0.00),
+   (1,  'COMERTOWN PRAIRIE',       'MT', 1130,  0.00),
+   (2,  'PINE BUTTE SWAMP',        'MT', 15000, 0.00),
+   (80, 'RAMSEY CANYON',           'AZ', 380,   3.00),
+   (10, 'HOFT FARM',               'MA', 90,    0.00),
+   (6,  'PAPAGONIA-SONOITA CREEK', 'AZ', 1200,  3.00)",
+  "CREATE TABLE EMPLOYEE
+   (ENO    CHAR (4)      NOT NULL UNIQUE,
+    ENAME  VARCHAR(25)   NOT NULL,
+    SALARY DECIMAL(7,2)  NOT NULL,
+    DNO    INTEGER       NOT NULL)",
+  "INSERT INTO EMPLOYEE VALUES
+   ('1000', 'MOE',    2000.00, 20),
+   ('2000', 'LARRY',  2000.00, 10),
+   ('3000', 'CURLY',  3000.00, 20),
+   ('4000', 'SHEMP',   500.00, 40),
+   ('5000', 'JOE',     400.00, 10),
+   ('6000', 'GEORGE', 9000.00, 20)"
+)
+invisible(lapply(comandos, function(q) dbExecute(con, q)))
+
+dbListTables(con)
+```
+
+# DISTINCT
+
+### Exercício 1
+
+Exiba os valores de `STATE` e `FEE` da tabela `PRESERVE`, mas sem duplicados.
+
+```{sql}
+SELECT DISTINCT STATE, FEE
+FROM PRESERVE;
+```
+
+### Exercício 2
+
+Exiba todos os valores de `DNO` na tabela `EMPLOYEE`. Não exiba valores duplicados.
+
+```{sql}
+SELECT DISTINCT DNO
+FROM EMPLOYEE;
+```
+
+### Exercício 3
+
+Execute as consultas a seguir. Examine as tabelas resultantes e faça as observações relevantes.
+
+```{sql}
+SELECT DNO, SALARY
+FROM EMPLOYEE;
+```
+
+```{sql}
+SELECT DISTINCT DNO, SALARY
+FROM EMPLOYEE;
+```
+
+```{sql}
+SELECT DISTINCT DNO, SALARY
+FROM EMPLOYEE
+ORDER BY DNO, SALARY;
+```
+
+# AND, OR e NOT
+
+### Exercício 4
+
+Exiba todas as informações sobre qualquer reserva natural em Montana que seja menor que
+1.000 acres.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE STATE = 'MT' AND ACRES < 1000;
+```
+
+### Exercício 5
+
+Exiba todas as informações sobre qualquer reserva natural cujo valor de `ACRES` esteja entre
+1.200 e 15.000, inclusive.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE ACRES >= 1200 AND ACRES <= 15000;
+```
+
+### Exercício 6
+
+Exiba todas as informações sobre qualquer reserva natural localizada em Montana que não
+possua taxa de entrada e seja maior que 10.000 acres.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE STATE = 'MT' AND FEE = 0 AND ACRES > 10000;
+```
+
+### Exercício 7
+
+Exiba todas as informações sobre as reservas naturais localizadas em Montana ou Massachusetts.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE STATE = 'MT' OR STATE = 'MA';
+```
+
+### Exercício 8
+
+Exiba todas as informações sobre qualquer reserva natural localizada em Montana ou qualquer
+reserva que seja menor que 1.000 acres.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE STATE = 'MT' OR ACRES < 1000;
+```
+
+### Exercício 9
+
+Exiba o número e o nome de qualquer reserva natural que possua taxa de entrada que não seja
+igual a zero.
+
+```{sql}
+SELECT PNO, PNAME
+FROM PRESERVE
+WHERE FEE <> 0;
+```
+
+### Exercício 10
+
+Exiba o número e o nome das reservas naturais que não possuem taxa de entrada de US\$ 3,00 e
+não possuem taxa de US\$ 10,00.
+
+```{sql}
+SELECT PNO, PNAME
+FROM PRESERVE
+WHERE NOT FEE = 3 AND NOT FEE = 10;
+```
+
+### Exercício 11
+
+Exiba todas as informações sobre qualquer reserva natural localizada no Arizona que não possua
+taxa de entrada, ou qualquer reserva que seja menor que 100 acres (independentemente de seus
+valores de `STATE` e `FEE`).
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE (STATE = 'AZ' AND FEE = 0) OR ACRES < 100;
+```
+
+### Exercício 12
+
+Exiba todas as informações sobre qualquer reserva natural que seja menor que 1.000 acres e
+tenha taxa de entrada de zero dólares ou esteja localizada no Arizona.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE ACRES < 1000 AND (FEE = 0 OR STATE = 'AZ');
+```
+
+### Exercício 13
+
+Selecione todas as informações sobre qualquer reserva natural com taxa de entrada que não seja
+maior que zero, ou qualquer outra reserva, independentemente de sua taxa, que esteja localizada
+em Montana e seja maior que 1.000 acres.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT FEE > 0 OR (STATE = 'MT' AND ACRES > 1000);
+```
+
+### Exercício 14
+
+Exiba todas as informações sobre todas as reservas naturais, exceto aquelas reservas de Montana
+sem taxa de entrada.
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT (STATE = 'MT' AND FEE = 0);
+```
+
+# Equivalência lógica de cláusulas WHERE
+
+### Exercício 15
+
+As seguintes cláusulas `WHERE` são logicamente equivalentes?
+
+- `WHERE STATE = 'MA' AND (ACRES > 1000 OR FEE = 0.0)`
+- `WHERE (STATE = 'MA' AND ACRES > 1000) OR (STATE = 'MA' AND FEE = 0.0)`
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE STATE = 'MA' AND (ACRES > 1000 OR FEE = 0.0);
+```
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE (STATE = 'MA' AND ACRES > 1000) OR (STATE = 'MA' AND FEE = 0.0);
+```
+
+### Exercício 16
+
+As seguintes cláusulas `WHERE` são logicamente equivalentes?
+
+- `WHERE STATE = 'MA' OR (ACRES > 1000 AND FEE = 0.0)`
+- `WHERE (STATE = 'MA' OR ACRES > 1000) AND (STATE = 'MA' OR FEE = 0.0)`
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE STATE = 'MA' OR (ACRES > 1000 AND FEE = 0.0);
+```
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE (STATE = 'MA' OR ACRES > 1000) AND (STATE = 'MA' OR FEE = 0.0);
+```
+
+### Exercício 17
+
+As seguintes cláusulas `WHERE` são logicamente equivalentes?
+
+- `WHERE NOT (ACRES < 50 AND STATE = 'MA')`
+- `WHERE NOT ACRES < 50 AND NOT STATE = 'MA'`
+- `WHERE ACRES >= 50 OR STATE <> 'MA'`
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT (ACRES < 50 AND STATE = 'MA');
+```
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT ACRES < 50 AND NOT STATE = 'MA';
+```
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE ACRES >= 50 OR STATE <> 'MA';
+```
+
+### Exercício 18
+
+As seguintes cláusulas `WHERE` são logicamente equivalentes?
+
+- `WHERE NOT (ACRES < 50 OR STATE = 'MA')`
+- `WHERE NOT ACRES < 50 OR NOT STATE = 'MA'`
+- `WHERE NOT ACRES < 50 AND NOT STATE = 'MA'`
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT (ACRES < 50 OR STATE = 'MA');
+```
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT ACRES < 50 OR NOT STATE = 'MA';
+```
+
+```{sql}
+SELECT *
+FROM PRESERVE
+WHERE NOT ACRES < 50 AND NOT STATE = 'MA';
+```
+
+```{r}
+#| label: fechar
+#| echo: false
+dbDisconnect(con)
+```
