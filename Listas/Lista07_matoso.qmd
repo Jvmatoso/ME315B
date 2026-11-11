@@ -1,0 +1,195 @@
+---
+title: "Lista 07 — GROUP BY II (Hands-On)"
+subtitle: "SQL para Estatísticos — Laboratório 07"
+author: "João Vitor Matoso"
+date: today
+date-format: "DD/MM/YYYY"
+lang: pt-BR
+format:
+  pdf:
+    documentclass: article
+    geometry: margin=2.5cm
+    toc: false
+    number-sections: false
+    colorlinks: true
+    code-block-bg: "#f5f5f5"
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Preparação
+
+O banco `purchase.sqlite` da aula contém a tabela `PURCHASE`. Para que este documento seja
+reproduzível, a tabela é (re)criada abaixo com os mesmos dados, e a conexão `con` é usada em
+todos os chunks SQL.
+
+```{r}
+#| label: setup
+#| warning: false
+#| message: false
+library(DBI)
+library(RSQLite)
+
+con <- dbConnect(SQLite(), "me315.sqlite")
+
+# Mostrar todas as linhas nos chunks SQL (o padrão do knitr é 10)
+knitr::opts_chunk$set(connection = "con", max.print = -1)
+
+comandos <- c(
+  "DROP TABLE IF EXISTS PURCHASE",
+  "CREATE TABLE PURCHASE
+   (PNO      CHAR (2) NOT NULL,
+    SNO      CHAR (2) NOT NULL,
+    ENO      CHAR (2) NOT NULL,
+    PJNO     CHAR (3) NOT NULL,
+    PURDAY   INTEGER  NOT NULL,
+    COST     INTEGER  NOT NULL,
+    DISCOUNT INTEGER  NOT NULL)",
+  "INSERT INTO PURCHASE VALUES
+   ('P1', 'S1', 'E1', 'PJ1',  1,  200,    0),
+   ('P1', 'S1', 'E1', 'PJ1', 17,  250,   50),
+   ('P1', 'S1', 'E1', 'PJ1', 80,  300,    0),
+   ('P1', 'S1', 'E1', 'PJ3',  5,  200,    0),
+   ('P1', 'S1', 'E1', 'PJ3',  6,  200,    0),
+   ('P1', 'S2', 'E2', 'PJ3', 85,  300,  100),
+   ('P2', 'S1', 'E1', 'PJ2',  1, 1000,    0),
+   ('P2', 'S1', 'E2', 'PJ2',  2, 1000,    0),
+   ('P2', 'S1', 'E2', 'PJ2', 85, 1200,    0),
+   ('P3', 'S1', 'E1', 'PJ1', 10,  500,  100),
+   ('P3', 'S1', 'E1', 'PJ1', 11,  500,  100),
+   ('P3', 'S1', 'E1', 'PJ1', 70,  550,  200),
+   ('P4', 'S2', 'E2', 'PJ2', 10,  300,    0),
+   ('P4', 'S1', 'E2', 'PJ2', 11,  300,    0),
+   ('P4', 'S2', 'E2', 'PJ2', 70,  400,   50),
+   ('P5', 'S1', 'E1', 'PJ1', 11, 1200,    0),
+   ('P5', 'S1', 'E1', 'PJ1', 22, 1200,    0),
+   ('P5', 'S1', 'E1', 'PJ1', 33, 1500,   25),
+   ('P6', 'S2', 'E2', 'PJ2', 11,  200,    0),
+   ('P6', 'S2', 'E2', 'PJ2', 33,  100,    0),
+   ('P7', 'S3', 'E1', 'PJ1', 11, 1000,    0),
+   ('P7', 'S4', 'E1', 'PJ1', 22, 1000,    0),
+   ('P7', 'S3', 'E1', 'PJ1', 33, 1000,    0),
+   ('P7', 'S4', 'E2', 'PJ2', 61, 1200,    0),
+   ('P7', 'S4', 'E2', 'PJ2', 72, 1200,  200),
+   ('P8', 'S1', 'E1', 'PJ1', 61,  100,    0),
+   ('P8', 'S1', 'E1', 'PJ1', 72,  100,    0),
+   ('P8', 'S1', 'E1', 'PJ1', 73,  100,    0),
+   ('P8', 'S1', 'E2', 'PJ2', 41,  100,   50),
+   ('P8', 'S2', 'E1', 'PJ2', 42,  100,   75),
+   ('P8', 'S1', 'E1', 'PJ2', 43,  100,  100),
+   ('P4', 'S1', 'E1', 'PJ3', 11,  300,   75),
+   ('P4', 'S1', 'E1', 'PJ3', 22,  300,   75),
+   ('P4', 'S2', 'E2', 'PJ3', 33,  300,    0),
+   ('P3', 'S3', 'E3', 'PJ1',  7, 1200, 1100),
+   ('P4', 'S3', 'E3', 'PJ1',  8, 1200,  900),
+   ('P5', 'S3', 'E3', 'PJ1',  9, 1500, 1400),
+   ('P3', 'S3', 'E3', 'PJ2', 14, 1200, 1000),
+   ('P4', 'S3', 'E3', 'PJ2', 15, 1200, 1000),
+   ('P5', 'S3', 'E3', 'PJ2', 16, 1500, 1300),
+   ('P3', 'S4', 'E4', 'PJ1', 10, 1100,    0),
+   ('P4', 'S4', 'E4', 'PJ1', 15, 1200,    0),
+   ('P5', 'S4', 'E4', 'PJ2', 20, 1500,   50),
+   ('P3', 'S4', 'E4', 'PJ2', 21, 1100,   50),
+   ('P4', 'S4', 'E4', 'PJ1', 70, 1200,    0),
+   ('P6', 'S4', 'E4', 'PJ2', 71, 1500,    0)"
+)
+invisible(lapply(comandos, function(q) dbExecute(con, q)))
+
+dbListTables(con)
+```
+
+# GROUP BY II — tabela PURCHASE
+
+### Exercício 1
+
+Consulte a tabela `PURCHASE`. Para cada peça, exiba seu número da peça (`PNO`), seguido pelo custo total de todas as compras dessa peça.
+
+```{sql}
+SELECT PNO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY PNO;
+```
+
+### Exercício 2
+
+Consulte a tabela `PURCHASE`. Para cada funcionário que comprou uma peça, exiba seu número de funcionário (`ENO`), seguido pelo custo total de todas as peças compradas pelo funcionário.
+
+```{sql}
+SELECT ENO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY ENO;
+```
+
+### Exercício 3
+
+Consulte a tabela `PURCHASE`. Calcule o total de `COST` para cada combinação de valores de (`PJNO`, `ENO`). Exiba essas colunas, da esquerda para a direita, na sequência (`PJNO`, `ENO`), seguidas pelo custo total. Ordene o resultado em ordem crescente por (`PJNO`, `ENO`).
+
+```{sql}
+SELECT PJNO, ENO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY PJNO, ENO
+ORDER BY PJNO, ENO;
+```
+
+### Exercício 4
+
+Consulte a tabela `PURCHASE`. Calcule o total de `COST` para cada combinação de valores de (`PNO`, `SNO`). Exiba essas colunas, da esquerda para a direita, na sequência (`PNO`, `SNO`), seguidas pelo custo total. Ordene o resultado em ordem crescente por (`PNO`, `SNO`).
+
+```{sql}
+SELECT PNO, SNO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY PNO, SNO
+ORDER BY PNO, SNO;
+```
+
+### Exercício 5
+
+Consulte a tabela `PURCHASE`. Calcule o total de `COST` para cada combinação de valores de (`PJNO`, `ENO`, `SNO`). Exiba essas colunas, da esquerda para a direita, na sequência (`PJNO`, `ENO`, `SNO`), seguidas pelo custo total. Ordene o resultado em ordem crescente por (`PJNO`, `ENO`, `SNO`).
+
+```{sql}
+SELECT PJNO, ENO, SNO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY PJNO, ENO, SNO
+ORDER BY PJNO, ENO, SNO;
+```
+
+### Exercício 6
+
+Consulte a tabela `PURCHASE`. Calcule o total de `COST` para cada combinação de valores de (`PNO`, `SNO`, `ENO`). Exiba essas colunas, da esquerda para a direita, na sequência (`PNO`, `SNO`, `ENO`), seguidas pelo custo total. Ordene o resultado em ordem crescente por (`PNO`, `SNO`, `ENO`).
+
+```{sql}
+SELECT PNO, SNO, ENO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY PNO, SNO, ENO
+ORDER BY PNO, SNO, ENO;
+```
+
+### Exercício 7
+
+Consulte a tabela `PURCHASE`. Exclua da análise todas as linhas associadas ao projeto `PJ2`. Exiba o total de `COST` para cada combinação de valores (`PJNO`, `ENO`, `SNO`).
+
+```{sql}
+SELECT PJNO, ENO, SNO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+WHERE PJNO <> 'PJ2'
+GROUP BY PJNO, ENO, SNO;
+```
+
+### Exercício 8
+
+Consulte a tabela `PURCHASE`. Exiba o `COST` total para cada combinação de valores (`PNO`, `SNO`, `ENO`) cujo total seja maior ou igual a 2000.
+
+```{sql}
+SELECT PNO, SNO, ENO, SUM(COST) AS CUSTO_TOTAL
+FROM PURCHASE
+GROUP BY PNO, SNO, ENO
+HAVING SUM(COST) >= 2000;
+```
+
+```{r}
+#| label: fechar
+#| echo: false
+dbDisconnect(con)
+```
