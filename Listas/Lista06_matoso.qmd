@@ -1,0 +1,244 @@
+---
+title: "Lista 06 — GROUP BY e HAVING (Hands-On)"
+subtitle: "SQL para Estatísticos — Laboratório 06"
+author: "João Vitor Matoso"
+date: today
+date-format: "DD/MM/YYYY"
+lang: pt-BR
+format:
+  pdf:
+    documentclass: article
+    geometry: margin=2.5cm
+    toc: false
+    number-sections: false
+    colorlinks: true
+    code-block-bg: "#f5f5f5"
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Preparação
+
+O banco `me315.sqlite` contém as tabelas `PRESERVE` e `EMPLOYEE` criadas na aula anterior.
+Para que este documento seja reproduzível, o banco é (re)criado abaixo com os mesmos
+comandos da Aula 01, e a conexão `con` é usada em todos os chunks SQL.
+
+```{r}
+#| label: setup
+#| warning: false
+#| message: false
+library(DBI)
+library(RSQLite)
+
+con <- dbConnect(SQLite(), "me315.sqlite")
+
+# Mostrar todas as linhas nos chunks SQL (o padrão do knitr é 10)
+knitr::opts_chunk$set(connection = "con", max.print = -1)
+
+comandos <- c(
+  "DROP TABLE IF EXISTS PRESERVE",
+  "DROP TABLE IF EXISTS EMPLOYEE",
+  "CREATE TABLE PRESERVE
+   (PNO   INTEGER       NOT NULL UNIQUE,
+    PNAME VARCHAR (25)  NOT NULL,
+    STATE CHAR (2)      NOT NULL,
+    ACRES INTEGER       NOT NULL,
+    FEE   DECIMAL (5,2) NOT NULL)",
+  "INSERT INTO PRESERVE VALUES
+   (5,  'HASSAYAMPA RIVER',        'AZ', 660,   3.00),
+   (3,  'DANCING PRAIRIE',         'MT', 680,   0.00),
+   (7,  'MULESHOE RANCH',          'AZ', 49120, 0.00),
+   (40, 'SOUTH FORK MADISON',      'MT', 121,   0.00),
+   (14, 'MCELWAIN-OLSEN',          'MA', 66,    0.00),
+   (13, 'TATKON',                  'MA', 40,    0.00),
+   (9,  'DAVID H. SMITH',          'MA', 830,   0.00),
+   (11, 'MIACOMET MOORS',          'MA', 4,     0.00),
+   (12, 'MOUNT PLANTAIN',          'MA', 730,   0.00),
+   (1,  'COMERTOWN PRAIRIE',       'MT', 1130,  0.00),
+   (2,  'PINE BUTTE SWAMP',        'MT', 15000, 0.00),
+   (80, 'RAMSEY CANYON',           'AZ', 380,   3.00),
+   (10, 'HOFT FARM',               'MA', 90,    0.00),
+   (6,  'PAPAGONIA-SONOITA CREEK', 'AZ', 1200,  3.00)",
+  "CREATE TABLE EMPLOYEE
+   (ENO    CHAR (4)      NOT NULL UNIQUE,
+    ENAME  VARCHAR(25)   NOT NULL,
+    SALARY DECIMAL(7,2)  NOT NULL,
+    DNO    INTEGER       NOT NULL)",
+  "INSERT INTO EMPLOYEE VALUES
+   ('1000', 'MOE',    2000.00, 20),
+   ('2000', 'LARRY',  2000.00, 10),
+   ('3000', 'CURLY',  3000.00, 20),
+   ('4000', 'SHEMP',   500.00, 40),
+   ('5000', 'JOE',     400.00, 10),
+   ('6000', 'GEORGE', 9000.00, 20)"
+)
+invisible(lapply(comandos, function(q) dbExecute(con, q)))
+
+dbListTables(con)
+```
+
+# GROUP BY e HAVING — tabela PRESERVE
+
+### Exercício 1
+
+Para cada estado mencionado na tabela `PRESERVE`, exiba o valor de `ACRES` da menor área de preservação natural localizada nesse estado.
+
+```{sql}
+SELECT STATE, MIN(ACRES)
+FROM PRESERVE
+GROUP BY STATE;
+```
+
+### Exercício 2
+
+Não considere nenhuma área de preservação natural que tenha mais de 10.000 acres. Para cada estado mencionado na tabela `PRESERVE`, exiba o valor de `ACRES` da maior área de preservação natural localizada nesse estado.
+
+```{sql}
+SELECT STATE, MAX(ACRES)
+FROM PRESERVE
+WHERE ACRES <= 10000
+GROUP BY STATE;
+```
+
+### Exercício 3
+
+Na tabela resultante anterior, ordene os resultados pelos valores máximos, em ordem decrescente.
+
+```{sql}
+SELECT STATE, MAX(ACRES)
+FROM PRESERVE
+WHERE ACRES <= 10000
+GROUP BY STATE
+ORDER BY MAX(ACRES) DESC;
+```
+
+### Exercício 4
+
+Exiba o tamanho, em acres, da maior área de preservação natural de cada estado, desde que esse valor seja inferior a 25.000 acres.
+
+```{sql}
+SELECT STATE, MAX(ACRES)
+FROM PRESERVE
+GROUP BY STATE
+HAVING MAX(ACRES) < 25000;
+```
+
+### Exercício 5
+
+Para cada estado mencionado na tabela `PRESERVE`, exiba o número de acres da menor área de preservação do estado, desde que esse número seja inferior a 100 acres.
+
+```{sql}
+SELECT STATE, MIN(ACRES)
+FROM PRESERVE
+GROUP BY STATE
+HAVING MIN(ACRES) < 100;
+```
+
+### Exercício 6
+
+Considere apenas as áreas de preservação natural com mais de 1.000 acres. Para cada estado, exiba o nome e o tamanho (em acres) da maior área de preservação natural desse estado, desde que esse valor seja inferior a 25.000 acres.
+
+```{sql}
+SELECT STATE, PNAME, MAX(ACRES)
+FROM PRESERVE
+WHERE ACRES > 1000
+GROUP BY STATE
+HAVING MAX(ACRES) < 25000;
+```
+
+### Exercício 7
+
+Exiba o estado e o tamanho total, em acres, das áreas de preservação localizadas nesse estado, desde que o tamanho total seja maior ou igual a 10.000 acres e menor ou igual a 50.000 acres.
+
+```{sql}
+SELECT STATE, SUM(ACRES) AS TOTAL
+FROM PRESERVE
+GROUP BY STATE
+HAVING SUM(ACRES) >= 10000 AND SUM(ACRES) <= 50000;
+```
+
+### Exercício 8
+
+Determine a quantidade média de acres das áreas de preservação para cada estado e, em seguida, exiba a maior dessas médias.
+
+```{sql}
+SELECT STATE, AVG(ACRES) AS MEDIA
+FROM PRESERVE
+GROUP BY STATE
+ORDER BY MEDIA DESC
+LIMIT 1;
+```
+
+# GROUP BY e HAVING — tabela EMPLOYEE
+
+### Exercício 9
+
+Para todos os valores de `DNO` dos departamentos encontrados na tabela `EMPLOYEE`, exiba o valor de `DNO`, seguido pelo salário médio daquele departamento.
+
+```{sql}
+SELECT DNO, AVG(SALARY) AS SALARIO_MEDIO
+FROM EMPLOYEE
+GROUP BY DNO;
+```
+
+### Exercício 10
+
+Para todos os valores de `DNO` dos departamentos encontrados na tabela `EMPLOYEE`, exiba o valor de `DNO`, seguido pela soma, pelo máximo e pelo mínimo dos salários daquele departamento.
+
+```{sql}
+SELECT DNO, SUM(SALARY) AS SOMA, MAX(SALARY) AS MAXIMO, MIN(SALARY) AS MINIMO
+FROM EMPLOYEE
+GROUP BY DNO;
+```
+
+### Exercício 11
+
+Considere todos os departamentos, exceto o Departamento 40. Para esses departamentos, exiba o valor de `DNO`, seguido pelo número de funcionários que trabalham em cada departamento.
+
+```{sql}
+SELECT DNO, COUNT(*) AS NUM_FUNCIONARIOS
+FROM EMPLOYEE
+WHERE DNO <> 40
+GROUP BY DNO;
+```
+
+### Exercício 12
+
+Para cada departamento, determine o número total de funcionários que trabalham naquele departamento. Suponha que a coluna `SALARY` contenha dados confidenciais e que alguém possa deduzir essas informações confidenciais examinando o total dos salários de cada departamento. Portanto, decida exibir apenas os departamentos nos quais o número de funcionários seja superior a dois.
+
+```{sql}
+SELECT DNO, COUNT(*) AS NUM_FUNCIONARIOS, SUM(SALARY) AS TOTAL_SALARIOS
+FROM EMPLOYEE
+GROUP BY DNO
+HAVING COUNT(*) > 2;
+```
+
+# Tabela com total
+
+### Exercício 13
+
+Escreva uma solução que possa ser utilizada para reproduzir a seguinte tabela.
+
+| STATE | SUM (ACRES) |
+|:------|------------:|
+| AZ    | 51360       |
+| MA    | 1760        |
+| MT    | 16931       |
+| Total | 70051       |
+
+```{sql}
+SELECT STATE, SUM(ACRES) AS "SUM (ACRES)"
+FROM PRESERVE
+GROUP BY STATE
+UNION ALL
+SELECT 'Total', SUM(ACRES)
+FROM PRESERVE;
+```
+
+```{r}
+#| label: fechar
+#| echo: false
+dbDisconnect(con)
+```
